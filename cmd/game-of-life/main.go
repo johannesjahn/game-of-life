@@ -193,6 +193,7 @@ func main() {
 		}
 	}()
 
+	generation := 0
 	for {
 		select {
 		case <-exitChan:
@@ -203,10 +204,10 @@ func main() {
 		drawGame(gameModel)
 
 		liveCells := countLiveCells(&gameModel)
-		writeLine(fmt.Sprintf("Population: %d", liveCells), height+1)
+		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), height+1)
 		s.Show()
 		gameStep(&gameModel)
-
+		generation++
 		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
 }
