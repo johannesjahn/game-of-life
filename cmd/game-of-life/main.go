@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -26,7 +27,7 @@ func drawGame(gm gameModel) {
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
 
-func initGameModel(width, height int) gameModel {
+func initGameModel(width, height, living int) gameModel {
 	gm := gameModel{
 		grid: make([][]rune, height),
 	}
@@ -37,16 +38,18 @@ func initGameModel(width, height int) gameModel {
 		}
 	}
 
-	gm.grid[5][5] = 'O'
-	gm.grid[5][6] = 'O'
-	gm.grid[5][7] = 'O'
-	gm.grid[6][5] = 'O'
-	gm.grid[6][6] = 'O'
-	gm.grid[6][7] = 'O'
-	gm.grid[7][5] = 'O'
-	gm.grid[7][6] = 'O'
-	gm.grid[7][7] = 'O'
-	gm.grid[8][5] = 'O'
+	if living > width*height {
+		living = width * height
+	}
+
+	for living > 0 {
+		x := rand.Intn(height)
+		y := rand.Intn(width)
+		if gm.grid[x][y] == '.' {
+			gm.grid[x][y] = 'O'
+			living--
+		}
+	}
 
 	return gm
 }
@@ -58,10 +61,10 @@ func gameStep(gm *gameModel) {
 		for j := range gm.grid[i] {
 			liveNeighbors := countLiveNeighbors(gm, i, j)
 			if gm.grid[i][j] == 'O' {
-				if liveNeighbors < 2 || liveNeighbors > 3 {
-					nextGrid[i][j] = '.'
-				} else {
+				if liveNeighbors == 2 || liveNeighbors == 3 {
 					nextGrid[i][j] = 'O'
+				} else {
+					nextGrid[i][j] = '.'
 				}
 			} else {
 				if liveNeighbors == 3 {
@@ -97,6 +100,7 @@ func main() {
 		height   int
 		width    int
 		interval int
+		living   int
 	)
 
 	flag.IntVar(&height, "height", 10, "height of the grid (default 10)")
@@ -105,6 +109,8 @@ func main() {
 	flag.IntVar(&width, "w", 10, "width of the grid (default 10) (shorthand)")
 	flag.IntVar(&interval, "interval", 100, "interval between steps in milliseconds (default 100)")
 	flag.IntVar(&interval, "i", 100, "interval between steps in milliseconds (default 100) (shorthand)")
+	flag.IntVar(&living, "living", 10, "number of living cells (default 10)")
+	flag.IntVar(&living, "l", 10, "number of living cells (default 10) (shorthand)")
 
 	// Parse the flags
 	flag.Parse()
@@ -140,7 +146,7 @@ func main() {
 	}
 	defer quit()
 
-	gameModel := initGameModel(width, height)
+	gameModel := initGameModel(width, height, living)
 
 	exitChan := make(chan struct{})
 
