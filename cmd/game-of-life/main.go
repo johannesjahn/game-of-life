@@ -27,7 +27,8 @@ func drawGame(gm gameModel) {
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
 
-func initGameModel(width, height, living int) gameModel {
+func initGameModel(width, height, living, seed int) gameModel {
+	log.Println("Initializing game model with width:", width, "height:", height, "living:", living, "seed:", seed)
 	gm := gameModel{
 		grid: make([][]rune, height),
 	}
@@ -42,15 +43,18 @@ func initGameModel(width, height, living int) gameModel {
 		living = width * height
 	}
 
+	r := rand.New(rand.NewSource(int64(seed)))
 	for living > 0 {
-		x := rand.Intn(height)
-		y := rand.Intn(width)
+
+		x := r.Intn(height)
+		y := r.Intn(width)
 		if gm.grid[x][y] == '.' {
 			gm.grid[x][y] = 'O'
 			living--
 		}
 	}
 
+	log.Println("Game model initialized")
 	return gm
 }
 
@@ -101,6 +105,7 @@ func main() {
 		width    int
 		interval int
 		living   int
+		seed     int
 	)
 
 	flag.IntVar(&height, "height", 10, "height of the grid (default 10)")
@@ -111,6 +116,7 @@ func main() {
 	flag.IntVar(&interval, "i", 100, "interval between steps in milliseconds (default 100) (shorthand)")
 	flag.IntVar(&living, "living", 10, "number of living cells (default 10)")
 	flag.IntVar(&living, "l", 10, "number of living cells (default 10) (shorthand)")
+	flag.IntVar(&seed, "seed", 0, "seed for random number generator (default 0)")
 
 	// Parse the flags
 	flag.Parse()
@@ -146,7 +152,7 @@ func main() {
 	}
 	defer quit()
 
-	gameModel := initGameModel(width, height, living)
+	gameModel := initGameModel(width, height, living, seed)
 
 	exitChan := make(chan struct{})
 
