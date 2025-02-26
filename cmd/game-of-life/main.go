@@ -168,8 +168,6 @@ func main() {
 		s.Show()
 		gameStep(&gameModel)
 
-		// Poll for events
-
 		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
 }
