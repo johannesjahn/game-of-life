@@ -140,6 +140,7 @@ func main() {
 	flag.IntVar(&living, "living", 10, "number of living cells (default 10)")
 	flag.IntVar(&living, "l", 10, "number of living cells (default 10) (shorthand)")
 	flag.IntVar(&seed, "seed", 0, "seed for random number generator (default 0)")
+	flag.IntVar(&seed, "s", 0, "seed for random number generator (default 0) (shorthand)")
 
 	// Parse the flags
 	flag.Parse()
