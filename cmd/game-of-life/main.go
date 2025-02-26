@@ -94,14 +94,17 @@ func countLiveNeighbors(gm *gameModel, x, y int) int {
 func main() {
 
 	var (
-		height int
-		width  int
+		height   int
+		width    int
+		interval int
 	)
 
 	flag.IntVar(&height, "height", 10, "height of the grid (default 10)")
 	flag.IntVar(&height, "h", 10, "height of the grid (default 10) (shorthand)")
 	flag.IntVar(&width, "width", 10, "width of the grid (default 10)")
 	flag.IntVar(&width, "w", 10, "width of the grid (default 10) (shorthand)")
+	flag.IntVar(&interval, "interval", 100, "interval between steps in milliseconds (default 100)")
+	flag.IntVar(&interval, "i", 100, "interval between steps in milliseconds (default 100) (shorthand)")
 
 	// Parse the flags
 	flag.Parse()
@@ -139,14 +142,15 @@ func main() {
 
 	gameModel := initGameModel(width, height)
 
+	exitChan := make(chan struct{})
+
 	go func() {
 		for {
-
 			ev := s.PollEvent()
 			switch ev := ev.(type) {
 			case *tcell.EventKey:
-				if ev.Key() == tcell.KeyEscape {
-					s.Fini()
+				if ev.Key() == tcell.KeyEscape || ev.Rune() == 'q' || ev.Key() == tcell.KeyCtrlC {
+					close(exitChan)
 					return
 				}
 			}
@@ -154,6 +158,11 @@ func main() {
 	}()
 
 	for {
+		select {
+		case <-exitChan:
+			return
+		default:
+		}
 		// Update screen
 		drawGame(gameModel)
 		s.Show()
@@ -161,6 +170,6 @@ func main() {
 
 		// Poll for events
 
-		time.Sleep(1000 * time.Millisecond)
+		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
 }
