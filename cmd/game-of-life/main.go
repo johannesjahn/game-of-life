@@ -24,6 +24,17 @@ func drawGame(gm gameModel) {
 	}
 }
 
+func writeLine(line string, y int) {
+	_, width := screen.Size()
+	for i := 0; i < width; i++ {
+		screen.SetContent(i, y, ' ', nil, defStyle)
+	}
+	for i, c := range line {
+		screen.SetContent(i, y, ' ', nil, defStyle)
+		screen.SetContent(i, y, c, nil, defStyle)
+	}
+}
+
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
 
@@ -93,6 +104,18 @@ func countLiveNeighbors(gm *gameModel, x, y int) int {
 		nx, ny := x+d.dx, y+d.dy
 		if nx >= 0 && nx < len(gm.grid) && ny >= 0 && ny < len(gm.grid[0]) && gm.grid[nx][ny] == 'O' {
 			count++
+		}
+	}
+	return count
+}
+
+func countLiveCells(gm *gameModel) int {
+	count := 0
+	for i := range gm.grid {
+		for j := range gm.grid[i] {
+			if gm.grid[i][j] == 'O' {
+				count++
+			}
 		}
 	}
 	return count
@@ -177,6 +200,9 @@ func main() {
 		}
 		// Update screen
 		drawGame(gameModel)
+
+		liveCells := countLiveCells(&gameModel)
+		writeLine(fmt.Sprintf("Population: %d", liveCells), height+1)
 		s.Show()
 		gameStep(&gameModel)
 
