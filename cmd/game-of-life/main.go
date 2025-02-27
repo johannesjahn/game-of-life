@@ -131,10 +131,10 @@ func main() {
 		seed     int
 	)
 
-	flag.IntVar(&height, "height", 10, "height of the grid (default 10)")
-	flag.IntVar(&height, "h", 10, "height of the grid (default 10) (shorthand)")
-	flag.IntVar(&width, "width", 10, "width of the grid (default 10)")
-	flag.IntVar(&width, "w", 10, "width of the grid (default 10) (shorthand)")
+	flag.IntVar(&height, "height", -1, "height of the grid (default max possible)")
+	flag.IntVar(&height, "h", -1, "height of the grid (default max possible) (shorthand)")
+	flag.IntVar(&width, "width", -1, "width of the grid (default max possible)")
+	flag.IntVar(&width, "w", -1, "width of the grid (default max possible) (shorthand)")
 	flag.IntVar(&interval, "interval", 100, "interval between steps in milliseconds (default 100)")
 	flag.IntVar(&interval, "i", 100, "interval between steps in milliseconds (default 100) (shorthand)")
 	flag.IntVar(&living, "living", 10, "number of living cells (default 10)")
@@ -175,6 +175,16 @@ func main() {
 		}
 	}
 	defer quit()
+
+	sw, sh := s.Size()
+
+	if width > sw || width < 1 {
+		width = sw
+	}
+	sh = sh - 2
+	if height > sh || height < 1 {
+		height = sh
+	}
 
 	gameModel := initGameModel(width, height, living, seed)
 
