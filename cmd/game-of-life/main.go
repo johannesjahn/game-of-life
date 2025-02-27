@@ -15,11 +15,45 @@ type gameModel struct {
 	grid [][]rune
 }
 
+var colors = []tcell.Color{
+	tcell.ColorRed,
+	tcell.ColorGreen,
+	tcell.ColorBlue,
+	tcell.ColorYellow,
+	tcell.ColorDarkRed,
+	tcell.ColorDarkGreen,
+	tcell.ColorDarkBlue,
+	tcell.ColorDarkGoldenrod,
+	tcell.ColorOrangeRed,
+	tcell.ColorDarkSlateGray,
+	tcell.ColorDarkOliveGreen,
+	tcell.ColorDarkOrchid,
+	tcell.ColorDarkSalmon,
+	tcell.ColorDarkSeaGreen,
+	tcell.ColorDarkTurquoise,
+	tcell.ColorDarkViolet,
+	tcell.ColorDeepPink,
+	tcell.ColorDeepSkyBlue,
+	tcell.ColorDimGray,
+	tcell.ColorDodgerBlue,
+	tcell.ColorFireBrick,
+	tcell.ColorFloralWhite,
+	tcell.ColorForestGreen,
+	tcell.ColorFuchsia,
+	tcell.ColorGainsboro,
+}
+
 func drawGame(gm gameModel) {
 
 	for i, row := range gm.grid {
 		for j, cell := range row {
-			screen.SetContent(j, i, cell, nil, defStyle)
+			if cell != '.' {
+				color := colors[(int(cell)-'A')%len(colors)]
+				style := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(color)
+				screen.SetContent(j, i, cell, nil, style)
+			} else {
+				screen.SetContent(j, i, cell, nil, defStyle)
+			}
 		}
 	}
 }
@@ -38,7 +72,7 @@ func writeLine(line string, y int) {
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
 
-func initGameModel(width, height, living, seed int) gameModel {
+func initGameModel(width, height, living, seed, factions int) gameModel {
 	log.Println("Initializing game model with width:", width, "height:", height, "living:", living, "seed:", seed)
 	gm := gameModel{
 		grid: make([][]rune, height),
@@ -60,7 +94,11 @@ func initGameModel(width, height, living, seed int) gameModel {
 		x := r.Intn(height)
 		y := r.Intn(width)
 		if gm.grid[x][y] == '.' {
-			gm.grid[x][y] = 'O'
+			if factions < 2 {
+				gm.grid[x][y] = 'O'
+			} else {
+				gm.grid[x][y] = rune(r.Intn(factions) + 'A')
+			}
 			living--
 		}
 	}
@@ -69,21 +107,29 @@ func initGameModel(width, height, living, seed int) gameModel {
 	return gm
 }
 
-func gameStep(gm *gameModel) {
+func gameStep(gm *gameModel, factions int) {
 	nextGrid := make([][]rune, len(gm.grid))
 	for i := range gm.grid {
 		nextGrid[i] = make([]rune, len(gm.grid[i]))
 		for j := range gm.grid[i] {
-			liveNeighbors := countLiveNeighbors(gm, i, j)
-			if gm.grid[i][j] == 'O' {
+			kind := gm.grid[i][j]
+			if kind == '.' {
+				if factions < 2 {
+					kind = 'O'
+				} else {
+					kind = rune('A' + rand.Intn(factions))
+				}
+			}
+			liveNeighbors := countLiveNeighbors(gm, i, j, kind)
+			if gm.grid[i][j] == kind {
 				if liveNeighbors == 2 || liveNeighbors == 3 {
-					nextGrid[i][j] = 'O'
+					nextGrid[i][j] = kind
 				} else {
 					nextGrid[i][j] = '.'
 				}
 			} else {
 				if liveNeighbors == 3 {
-					nextGrid[i][j] = 'O'
+					nextGrid[i][j] = kind
 				} else {
 					nextGrid[i][j] = '.'
 				}
@@ -93,7 +139,7 @@ func gameStep(gm *gameModel) {
 	gm.grid = nextGrid
 }
 
-func countLiveNeighbors(gm *gameModel, x, y int) int {
+func countLiveNeighbors(gm *gameModel, x, y int, kind rune) int {
 	directions := []struct{ dx, dy int }{
 		{-1, -1}, {-1, 0}, {-1, 1},
 		{0, -1}, {0, 1},
@@ -102,7 +148,7 @@ func countLiveNeighbors(gm *gameModel, x, y int) int {
 	count := 0
 	for _, d := range directions {
 		nx, ny := x+d.dx, y+d.dy
-		if nx >= 0 && nx < len(gm.grid) && ny >= 0 && ny < len(gm.grid[0]) && gm.grid[nx][ny] == 'O' {
+		if nx >= 0 && nx < len(gm.grid) && ny >= 0 && ny < len(gm.grid[0]) && gm.grid[nx][ny] == kind {
 			count++
 		}
 	}
@@ -113,7 +159,7 @@ func countLiveCells(gm *gameModel) int {
 	count := 0
 	for i := range gm.grid {
 		for j := range gm.grid[i] {
-			if gm.grid[i][j] == 'O' {
+			if gm.grid[i][j] != '.' {
 				count++
 			}
 		}
@@ -129,6 +175,7 @@ func main() {
 		interval int
 		living   int
 		seed     int
+		factions int
 	)
 
 	flag.IntVar(&height, "height", -1, "height of the grid (default max possible)")
@@ -141,6 +188,8 @@ func main() {
 	flag.IntVar(&living, "l", -1, "number of living cells (default (width * height) / 3) (shorthand)")
 	flag.IntVar(&seed, "seed", 0, "seed for random number generator (default 0)")
 	flag.IntVar(&seed, "s", 0, "seed for random number generator (default 0) (shorthand)")
+	flag.IntVar(&factions, "factions", 0, "number of factions (default 0)")
+	flag.IntVar(&factions, "f", 0, "number of factions (default 0) (shorthand)")
 
 	// Parse the flags
 	flag.Parse()
@@ -189,7 +238,7 @@ func main() {
 		living = (width * height) / 3
 	}
 
-	gameModel := initGameModel(width, height, living, seed)
+	gameModel := initGameModel(width, height, living, seed, factions)
 
 	exitChan := make(chan struct{})
 
@@ -219,7 +268,7 @@ func main() {
 		liveCells := countLiveCells(&gameModel)
 		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), height+1)
 		s.Show()
-		gameStep(&gameModel)
+		gameStep(&gameModel, factions)
 		generation++
 		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
