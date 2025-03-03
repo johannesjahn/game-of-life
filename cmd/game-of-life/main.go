@@ -4,16 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math/rand"
 	"os"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/johannesjahn/game-of-life/internal/game"
 )
-
-type gameModel struct {
-	grid [][]rune
-}
 
 var colors = []tcell.Color{
 	tcell.ColorRed,
@@ -30,7 +26,7 @@ var colors = []tcell.Color{
 	tcell.ColorDarkOrchid,
 	tcell.ColorDarkSalmon,
 	tcell.ColorDarkSeaGreen,
-	tcell.ColorDarkTurquoise,
+	tcell.ColorReset,
 	tcell.ColorDarkViolet,
 	tcell.ColorDeepPink,
 	tcell.ColorDeepSkyBlue,
@@ -43,9 +39,9 @@ var colors = []tcell.Color{
 	tcell.ColorGainsboro,
 }
 
-func drawGame(gm gameModel) {
+func drawGame(gm game.GameModel) {
 
-	for i, row := range gm.grid {
+	for i, row := range gm.Grid {
 		for j, cell := range row {
 			if cell != '.' {
 				color := colors[(int(cell)-'A')%len(colors)]
@@ -71,101 +67,6 @@ func writeLine(line string, y int) {
 
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
-
-func initGameModel(width, height, living, seed, factions int) gameModel {
-	log.Println("Initializing game model with width:", width, "height:", height, "living:", living, "seed:", seed)
-	gm := gameModel{
-		grid: make([][]rune, height),
-	}
-	for i := range gm.grid {
-		gm.grid[i] = make([]rune, width)
-		for j := range gm.grid[i] {
-			gm.grid[i][j] = '.'
-		}
-	}
-
-	if living > width*height {
-		living = width * height
-	}
-
-	r := rand.New(rand.NewSource(int64(seed)))
-	for living > 0 {
-
-		x := r.Intn(height)
-		y := r.Intn(width)
-		if gm.grid[x][y] == '.' {
-			if factions < 2 {
-				gm.grid[x][y] = 'O'
-			} else {
-				gm.grid[x][y] = rune(r.Intn(factions) + 'A')
-			}
-			living--
-		}
-	}
-
-	log.Println("Game model initialized")
-	return gm
-}
-
-func gameStep(gm *gameModel, factions int) {
-	nextGrid := make([][]rune, len(gm.grid))
-	for i := range gm.grid {
-		nextGrid[i] = make([]rune, len(gm.grid[i]))
-		for j := range gm.grid[i] {
-			kind := gm.grid[i][j]
-			if kind == '.' {
-				if factions < 2 {
-					kind = 'O'
-				} else {
-					kind = rune('A' + rand.Intn(factions))
-				}
-			}
-			liveNeighbors := countLiveNeighbors(gm, i, j, kind)
-			if gm.grid[i][j] == kind {
-				if liveNeighbors == 2 || liveNeighbors == 3 {
-					nextGrid[i][j] = kind
-				} else {
-					nextGrid[i][j] = '.'
-				}
-			} else {
-				if liveNeighbors == 3 {
-					nextGrid[i][j] = kind
-				} else {
-					nextGrid[i][j] = '.'
-				}
-			}
-		}
-	}
-	gm.grid = nextGrid
-}
-
-func countLiveNeighbors(gm *gameModel, x, y int, kind rune) int {
-	directions := []struct{ dx, dy int }{
-		{-1, -1}, {-1, 0}, {-1, 1},
-		{0, -1}, {0, 1},
-		{1, -1}, {1, 0}, {1, 1},
-	}
-	count := 0
-	for _, d := range directions {
-		nx, ny := x+d.dx, y+d.dy
-		if nx >= 0 && nx < len(gm.grid) && ny >= 0 && ny < len(gm.grid[0]) && gm.grid[nx][ny] == kind {
-			count++
-		}
-	}
-	return count
-}
-
-func countLiveCells(gm *gameModel) int {
-	count := 0
-	for i := range gm.grid {
-		for j := range gm.grid[i] {
-			if gm.grid[i][j] != '.' {
-				count++
-			}
-		}
-	}
-	return count
-}
 
 func main() {
 
@@ -238,7 +139,7 @@ func main() {
 		living = (width * height) / 3
 	}
 
-	gameModel := initGameModel(width, height, living, seed, factions)
+	gameModel := game.InitGameModel(width, height, living, seed, factions)
 
 	exitChan := make(chan struct{})
 
@@ -265,10 +166,10 @@ func main() {
 		// Update screen
 		drawGame(gameModel)
 
-		liveCells := countLiveCells(&gameModel)
+		liveCells := game.CountLiveCells(&gameModel)
 		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), height+1)
 		s.Show()
-		gameStep(&gameModel, factions)
+		game.GameStep(&gameModel, factions)
 		generation++
 		time.Sleep(time.Duration(interval) * time.Millisecond)
 	}
