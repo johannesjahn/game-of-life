@@ -68,8 +68,16 @@ func writeLine(line string, y int) {
 var defStyle = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 var screen tcell.Screen
 
-func main() {
+type config struct {
+	height   int
+	width    int
+	interval int
+	living   int
+	seed     int
+	factions int
+}
 
+func parseInput() config {
 	var (
 		height   int
 		width    int
@@ -100,6 +108,20 @@ func main() {
 		os.Exit(2)
 	}
 
+	return config{
+		height:   height,
+		width:    width,
+		interval: interval,
+		living:   living,
+		seed:     seed,
+		factions: factions,
+	}
+}
+
+func main() {
+
+	c := parseInput()
+
 	// Initialize screen
 	s, err := tcell.NewScreen()
 	if err != nil {
@@ -128,18 +150,18 @@ func main() {
 
 	sw, sh := s.Size()
 
-	if width > sw || width < 1 {
-		width = sw
+	if c.width > sw || c.width < 1 {
+		c.width = sw
 	}
 	sh = sh - 2
-	if height > sh || height < 1 {
-		height = sh
+	if c.height > sh || c.height < 1 {
+		c.height = sh
 	}
-	if living < 1 {
-		living = (width * height) / 3
+	if c.living < 1 {
+		c.living = (c.width * c.height) / 3
 	}
 
-	gameModel := game.InitGameModel(width, height, living, seed, factions)
+	gameModel := game.InitGameModel(c.width, c.height, c.living, c.seed, c.factions)
 
 	exitChan := make(chan struct{})
 
@@ -167,10 +189,10 @@ func main() {
 		drawGame(gameModel)
 
 		liveCells := game.CountLiveCells(&gameModel)
-		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), height+1)
+		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), c.height+1)
 		s.Show()
-		game.GameStep(&gameModel, factions)
+		game.GameStep(&gameModel, c.factions)
 		generation++
-		time.Sleep(time.Duration(interval) * time.Millisecond)
+		time.Sleep(time.Duration(c.interval) * time.Millisecond)
 	}
 }
