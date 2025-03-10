@@ -24,5 +24,8 @@ jobs:
       - name: Get dependencies
         run: go mod tidy
 
+      - name: Build
+        run: make
+
       - name: Run tests
         run: make test
