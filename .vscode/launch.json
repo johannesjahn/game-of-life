@@ -10,7 +10,8 @@
       "request": "launch",
       "console": "integratedTerminal",
       "mode": "auto",
-      "program": "${workspaceFolder}/cmd/game-of-life/main.go"
+      "program": "${workspaceFolder}/cmd/game-of-life/main.go",
+      "args": ["-i", "100"]
     }
   ]
 }

@@ -54,13 +54,12 @@ func drawGame(gm game.GameModel) {
 	}
 }
 
-func writeLine(line string, y int) {
-	_, width := screen.Size()
+func writeLine(line string, y, width int) {
+
 	for i := 0; i < width; i++ {
 		screen.SetContent(i, y, ' ', nil, defStyle)
 	}
 	for i, c := range line {
-		screen.SetContent(i, y, ' ', nil, defStyle)
 		screen.SetContent(i, y, c, nil, defStyle)
 	}
 }
@@ -189,7 +188,7 @@ func main() {
 		drawGame(gameModel)
 
 		liveCells := game.CountLiveCells(&gameModel)
-		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), c.height+1)
+		writeLine(fmt.Sprintf("Population: %d Generation: %d", liveCells, generation), c.height+1, c.width)
 		s.Show()
 		game.GameStep(&gameModel, c.factions)
 		generation++
