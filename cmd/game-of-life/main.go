@@ -39,13 +39,21 @@ var colors = []tcell.Color{
 	tcell.ColorGainsboro,
 }
 
-func drawGame(gm game.GameModel) {
+var factionStyles = func() []tcell.Style {
+	styles := make([]tcell.Style, len(colors))
+	for i, color := range colors {
+		styles[i] = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(color)
+	}
+	return styles
+}()
 
-	for i, row := range gm.Grid {
-		for j, cell := range row {
+func drawGame(gm game.GameModel) {
+	for i := range gm.Height {
+		base := i * gm.Width
+		for j := range gm.Width {
+			cell := gm.Grid[base+j]
 			if cell != '.' {
-				color := colors[(int(cell)-'A')%len(colors)]
-				style := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(color)
+				style := factionStyles[(int(cell)-'A')%len(factionStyles)]
 				screen.SetContent(j, i, cell, nil, style)
 			} else {
 				screen.SetContent(j, i, cell, nil, defStyle)

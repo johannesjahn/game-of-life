@@ -3,38 +3,54 @@ package game
 import (
 	"log"
 	"math/rand"
+	"runtime"
+	"sync"
 )
 
+// directions is the fixed 8-neighbor offset table, built once instead of on
+// every CountLiveNeighbors call.
+var directions = [8]struct{ dx, dy int }{
+	{-1, -1}, {-1, 0}, {-1, 1},
+	{0, -1}, {0, 1},
+	{1, -1}, {1, 0}, {1, 1},
+}
+
 type GameModel struct {
-	Grid [][]rune
+	Width  int
+	Height int
+	Grid   []rune
+
+	next []rune
+	rng  *rand.Rand
 }
 
 func InitGameModel(width, height, living, seed, factions int) GameModel {
 	log.Println("Initializing game model with width:", width, "height:", height, "living:", living, "seed:", seed)
 	gm := GameModel{
-		Grid: make([][]rune, height),
+		Width:  width,
+		Height: height,
+		Grid:   make([]rune, width*height),
+		next:   make([]rune, width*height),
+		rng:    rand.New(rand.NewSource(int64(seed))),
 	}
 	for i := range gm.Grid {
-		gm.Grid[i] = make([]rune, width)
-		for j := range gm.Grid[i] {
-			gm.Grid[i][j] = '.'
-		}
+		gm.Grid[i] = '.'
 	}
 
 	if living > width*height {
 		living = width * height
 	}
 
-	r := rand.New(rand.NewSource(int64(seed)))
+	r := gm.rng
 	for living > 0 {
-
 		x := r.Intn(height)
 		y := r.Intn(width)
-		if gm.Grid[x][y] == '.' {
+		idx := x*width + y
+		if gm.Grid[idx] == '.' {
 			if factions < 2 {
-				gm.Grid[x][y] = 'O'
+				gm.Grid[idx] = 'O'
 			} else {
-				gm.Grid[x][y] = rune(r.Intn(factions) + 'A')
+				gm.Grid[idx] = rune(r.Intn(factions) + 'A')
 			}
 			living--
 		}
@@ -45,47 +61,82 @@ func InitGameModel(width, height, living, seed, factions int) GameModel {
 }
 
 func GameStep(gm *GameModel, factions int) {
-	nextGrid := make([][]rune, len(gm.Grid))
-	for i := range gm.Grid {
-		nextGrid[i] = make([]rune, len(gm.Grid[i]))
-		for j := range gm.Grid[i] {
-			kind := gm.Grid[i][j]
+	height := gm.Height
+
+	numWorkers := runtime.GOMAXPROCS(0)
+	if numWorkers > height {
+		numWorkers = height
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+	rowsPerWorker := (height + numWorkers - 1) / numWorkers
+
+	var wg sync.WaitGroup
+	for w := range numWorkers {
+		startRow := w * rowsPerWorker
+		endRow := startRow + rowsPerWorker
+		if endRow > height {
+			endRow = height
+		}
+		if startRow >= endRow {
+			break
+		}
+
+		// Each worker gets its own RNG, seeded deterministically from the
+		// model's seeded source, so no shared/global rand lock is hit on
+		// the hot path and results stay reproducible for a given seed.
+		workerRand := rand.New(rand.NewSource(gm.rng.Int63()))
+
+		wg.Add(1)
+		go func(startRow, endRow int, r *rand.Rand) {
+			defer wg.Done()
+			stepRows(gm, r, factions, startRow, endRow)
+		}(startRow, endRow, workerRand)
+	}
+	wg.Wait()
+
+	gm.Grid, gm.next = gm.next, gm.Grid
+}
+
+func stepRows(gm *GameModel, r *rand.Rand, factions, startRow, endRow int) {
+	width := gm.Width
+	for i := startRow; i < endRow; i++ {
+		base := i * width
+		for j := range width {
+			idx := base + j
+			kind := gm.Grid[idx]
 			if kind == '.' {
 				if factions < 2 {
 					kind = 'O'
 				} else {
-					kind = rune('A' + rand.Intn(factions))
+					kind = rune('A' + r.Intn(factions))
 				}
 			}
-			liveNeighbors := CountLiveNeighbors(gm, i, j, kind)
-			if gm.Grid[i][j] == kind {
+			liveNeighbors := countLiveNeighbors(gm, i, j, kind)
+			if gm.Grid[idx] == kind {
 				if liveNeighbors == 2 || liveNeighbors == 3 {
-					nextGrid[i][j] = kind
+					gm.next[idx] = kind
 				} else {
-					nextGrid[i][j] = '.'
+					gm.next[idx] = '.'
 				}
 			} else {
 				if liveNeighbors == 3 {
-					nextGrid[i][j] = kind
+					gm.next[idx] = kind
 				} else {
-					nextGrid[i][j] = '.'
+					gm.next[idx] = '.'
 				}
 			}
 		}
 	}
-	gm.Grid = nextGrid
 }
 
-func CountLiveNeighbors(gm *GameModel, x, y int, kind rune) int {
-	directions := []struct{ dx, dy int }{
-		{-1, -1}, {-1, 0}, {-1, 1},
-		{0, -1}, {0, 1},
-		{1, -1}, {1, 0}, {1, 1},
-	}
+func countLiveNeighbors(gm *GameModel, x, y int, kind rune) int {
+	width, height := gm.Width, gm.Height
 	count := 0
 	for _, d := range directions {
 		nx, ny := x+d.dx, y+d.dy
-		if nx >= 0 && nx < len(gm.Grid) && ny >= 0 && ny < len(gm.Grid[0]) && gm.Grid[nx][ny] == kind {
+		if nx >= 0 && nx < height && ny >= 0 && ny < width && gm.Grid[nx*width+ny] == kind {
 			count++
 		}
 	}
@@ -94,11 +145,9 @@ func CountLiveNeighbors(gm *GameModel, x, y int, kind rune) int {
 
 func CountLiveCells(gm *GameModel) int {
 	count := 0
-	for i := range gm.Grid {
-		for j := range gm.Grid[i] {
-			if gm.Grid[i][j] != '.' {
-				count++
-			}
+	for _, cell := range gm.Grid {
+		if cell != '.' {
+			count++
 		}
 	}
 	return count
